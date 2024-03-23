@@ -19,10 +19,11 @@ names = {"Non_Demented": 0, "Very_Mild_Demented": 1, "Mild_Demented": 2, "Modera
 
 for folder in sorted(os.listdir("Dataset")):
     for idx, file in enumerate(sorted(os.listdir(f"Dataset/{folder}"))):
-        img = Image.open(f"Dataset/{folder}/{file}").resize((64, 64)).convert("L")
+        if idx > len(os.listdir(f"Dataset/{folder}")) * 0.2: continue
+        img = Image.open(f"Dataset/{folder}/{file}").resize((128, 128)).convert("L")
         torch_image = torchvision.transforms.ToTensor()(img).to("cuda")
 
-        if idx < len(os.listdir(f"Dataset/{folder}")) * 0.8:
+        if idx < len(os.listdir(f"Dataset/{folder}")) * 0.15:
             images = torch.cat((images, torch_image.unsqueeze(0)), dim=0)
             temp = [0, 0, 0, 0]
             temp[names[folder]] = 1
@@ -44,20 +45,28 @@ class AlzheimerClassifier(torch.nn.Module):
     def __init__(self) -> None:
         super().__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(1, 16, kernel_size=3, padding=1),  # Grayscale images have 1 channel
+            nn.Conv2d(1, 64, kernel_size=3, padding=1),  # Grayscale images have 1 channel
             nn.ReLU(),
             nn.MaxPool2d(2, 2),
-            nn.Conv2d(16, 32, kernel_size=3, padding=1),
+            nn.Conv2d(64, 32, kernel_size=3, padding=1),  # Grayscale images have 1 channel
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(32, 16, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(16, 16, kernel_size=3, padding=1),  # Grayscale images have 1 channel
             nn.ReLU(),
             nn.MaxPool2d(2, 2)
         )
         self.fc = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(32 * 16 * 16, 512),  # Adjust based on output of conv layers
+            nn.Linear(8192, 2048),  # Adjust based on output of conv layers
             nn.ReLU(),
-            nn.Linear(512, 64),
+            nn.Linear(2048, 1024),
             nn.ReLU(),
-            nn.Linear(64, 4)
+            nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Linear(512, 4)
         )
 
     def forward(self, x):
@@ -71,7 +80,7 @@ model = AlzheimerClassifier()
 criterion = torch.nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters())
 
-epochs = 1000
+epochs = 500
 model.train()
 for epoch in range(epochs):
     outputs = model(images)
