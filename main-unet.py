@@ -107,16 +107,19 @@ class UNet(nn.Module):
         )
 
 
+image_size = (128, 128)
+
 # Define data transformations
 transform = torchvision.transforms.Compose([
     # transforms.Grayscale(),  # Convert image to grayscale
-    # transforms.Resize(image_size),  # Resize image
+    torchvision.transforms.Resize(image_size),  # Resize image
     torchvision.transforms.ToTensor(),  # Convert image to PyTorch tensor
     torchvision.transforms.Normalize(mean=[0.5], std=[0.5]),  # Normalize pixel values
 ])
 
 
 class ImageFolderDataset(Dataset):
+    #dataloader
     def __init__(self, data_dir, transform=None, train=True):
         self.data_dir = data_dir
         self.transform = transform
@@ -127,7 +130,7 @@ class ImageFolderDataset(Dataset):
 
         for folder in sorted(os.listdir(data_dir)):
             for idx, file in enumerate(sorted(os.listdir(f"{data_dir}/{folder}"))):
-                if idx > len(os.listdir(f"{data_dir}/{folder}")) * 0.8 and self.train\
+                if idx > len(os.listdir(f"{data_dir}/{folder}")) * 0.8 and self.train \
                         or idx < len(os.listdir(f"{data_dir}/{folder}")) * 0.8 and not self.train:
                     continue
                 img_path = f"{data_dir}/{folder}/{file}"
@@ -137,6 +140,9 @@ class ImageFolderDataset(Dataset):
                 self.images.append(img_path)
                 self.classes.append(label)
 
+                if idx % 100 == 0:
+                    print(idx)
+
     def __len__(self):
         return len(self.images)
 
@@ -144,7 +150,7 @@ class ImageFolderDataset(Dataset):
         img_path = self.images[idx]
         label = self.classes[idx]
 
-        img = Image.open(img_path).convert("RGB")
+        img = Image.open(img_path).convert("RGB")  #convert to rgb bc unet
         if self.transform:
             img = self.transform(img)
         return img, torch.tensor(label)
@@ -153,41 +159,11 @@ class ImageFolderDataset(Dataset):
 train_data = ImageFolderDataset("Dataset", transform=transform)
 test_data = ImageFolderDataset("Dataset", transform=transform, train=False)  # Use the same transform
 train_loader = DataLoader(train_data, batch_size=64, shuffle=True, generator=torch.Generator(device='cuda'))
-test_loader = DataLoader(test_data, batch_size=64, shuffle=False, generator=torch.Generator(device='cuda'))  # Don't shuffle test data
+test_loader = DataLoader(test_data, batch_size=64, shuffle=False,
+                         generator=torch.Generator(device='cuda'))  # Don't shuffle test data
 
 torch.set_default_device("cuda")
-"""
-images = torch.tensor([], dtype=torch.float32)
-classes = []
 
-test_images = torch.tensor([], dtype=torch.float32)
-test_classes = []
-
-names = {"Non_Demented": 0, "Very_Mild_Demented": 1, "Mild_Demented": 2, "Moderate_Demented": 3}
-
-for folder in sorted(os.listdir("Dataset")):
-    for idx, file in enumerate(sorted(os.listdir(f"Dataset/{folder}"))):
-        if idx > 600: break
-
-        img = Image.open(f"Dataset/{folder}/{file}").convert("RGB")
-        torch_image = torchvision.transforms.ToTensor()(img).to("cuda")
-
-        if idx < 600 * 0.8:
-            images = torch.cat((images, torch_image.unsqueeze(0)), dim=0)
-            temp = [0, 0, 0, 0]
-            temp[names[folder]] = 1
-            classes.append(temp)
-        else:
-            test_images = torch.cat((test_images, torch_image.unsqueeze(0)), dim=0)
-            temp = [0, 0, 0, 0]
-            temp[names[folder]] = 1
-            test_classes.append(temp)
-
-
-y = torch.tensor(classes, dtype=torch.float32)
-
-print(images.size(), y.size())
-"""
 model = UNet()
 
 criterion = torch.nn.CrossEntropyLoss()
@@ -195,30 +171,7 @@ optimizer = torch.optim.Adam(model.parameters())
 
 epochs = 500
 model.train()
-"""
-for epoch in range(epochs):
-    outputs = model(images)
-    loss = criterion(outputs, y)
 
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-
-    print(f'Epoch [{epoch}/{epochs}], Loss: {loss}')
-
-torch.save(model.state_dict(), 'model.pt')
-
-model.eval()
-with torch.inference_mode():
-    pred = torch.nn.functional.softmax(model(test_images), dim=1)
-    print(pred)
-    accurate = 0
-    for idx, p in enumerate(pred):
-        if int(torch.max(p, 0).indices.item()) == test_classes[idx].index(max(test_classes[idx])):
-            accurate += 1
-
-    print(accurate, len(pred), accurate / len(pred))
-"""
 for epoch in range(epochs):
     for images, labels in train_loader:
         # Move data to GPU if available
@@ -235,7 +188,7 @@ for epoch in range(epochs):
         optimizer.step()
 
     # Evaluate on test set (optional)
-    with torch.no_grad():
+    with torch.inference_mode():
         model.eval()  # Set model to evaluation mode
         test_loss = 0
         correct = 0
@@ -253,9 +206,10 @@ for epoch in range(epochs):
         test_loss /= len(test_loader.dataset)
         test_acc = correct / len(test_loader.dataset)
 
-        print(f"Epoch: {epoch + 1}, Train Loss: {loss.item():.4f}, Test Loss: {test_loss:.4f}, Test Accuracy: {test_acc:.4f}")
+        print(
+            f"Epoch: {epoch + 1}, Train Loss: {loss.item():.4f}, Test Loss: {test_loss:.4f}, Test Accuracy: {test_acc:.4f}")
 
     # Save the trained model
     torch.save(model.state_dict(), "model.pth")
 
-    print("Model training complete!")
+print("Model training complete!")

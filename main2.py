@@ -7,17 +7,16 @@ from PIL import Image
 
 
 # Define paths and hyperparameters
-data_dir = "Dataset"  # Replace with your actual data directory
-image_size = (128, 128)  # Size of your images
-num_classes = 4  # Number of classes in your dataset
+data_dir = "Dataset"
+image_size = (128, 128)  # Size of images
+num_classes = 4  # Number of classes in dataset
 batch_size = 32  # Batch size for training
 learning_rate = 0.001  # Learning rate for optimizer
 num_epochs = 10  # Number of training epochs
 
 # Define data transformations
 transform = transforms.Compose([
-    # transforms.Grayscale(),  # Convert image to grayscale
-    # transforms.Resize(image_size),  # Resize image
+    transforms.Resize(image_size),  # Resize image
     transforms.ToTensor(),  # Convert image to PyTorch tensor
     transforms.Normalize(mean=[0.5], std=[0.5]),  # Normalize pixel values
 ])

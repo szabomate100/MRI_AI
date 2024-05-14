@@ -74,7 +74,7 @@ class AlzheimerClassifier(torch.nn.Module):
 
     def forward(self, x):#lineáris transzformáció előrébb viszi az x tengelyt
         x = self.conv(x)
-        x = self.fc(x)#GOOGLE
+        x = self.fc(x)
         return x
 
 
